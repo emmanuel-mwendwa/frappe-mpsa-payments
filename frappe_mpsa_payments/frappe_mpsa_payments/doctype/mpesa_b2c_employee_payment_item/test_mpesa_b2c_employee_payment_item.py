@@ -3,6 +3,8 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from .mpesa_b2c_employee_payment_item import sanitise_phone_number
+from .mpesa_b2c_employee_payment_item import is_valid_receiver_contact
 
 
 class MPesaB2CEmployeePaymentItem(FrappeTestCase):
@@ -54,3 +56,51 @@ class MPesaB2CEmployeePaymentItem(FrappeTestCase):
         except frappe.ValidationError:
             self.fail("validate() raised ValidationError unexpectedly!")
 
+    def test_sanitise_phone_number(self):
+        """Test that the sanitise_phone_number function correctly sanitises a phone number"""
+        test_cases = [
+            ("0712345678", "254712345678"),
+            ("+254712345678", "254712345678"),
+            ("254712345678", "254712345678"),
+            ("0712345678 ", "254712345678"),
+            (" 0712345678", "254712345678"),
+            ("0712345678 +", "254712345678"),
+            ("0712345678  ", "254712345678"),
+        ]
+
+        for input_number, expected_output in test_cases:
+            self.assertEqual(sanitise_phone_number(input_number), expected_output)
+
+    def test_sanitise_phone_number_invalid(self):
+        """Test that the sanitise_phone_number function does not modify an invalid phone number"""
+        test_cases = [
+            ("+25471234567", "+25471234567"),
+            ("07123456789", "07123456789"),
+            ("25471234567", "25471234567"),
+            ("0712345678a", "0712345678a"),
+            ("0712345678 ", "0712345678 "),
+        ]
+
+        for input_number, expected_output in test_cases:
+            self.assertEqual(sanitise_phone_number(input_number), expected_output)
+
+    def test_is_valid_receiver_contact(self):
+        """Test that the is_valid_receiver_contact function correctly identifies valid and invalid contacts"""
+        valid_contacts = [
+            "254712345678",
+            "+254712345678",
+            "0712345678",
+        ]
+
+        invalid_contacts = [
+            "07123456789",
+            "25471234567",
+            "+25471234567",
+            "0712345678a",
+        ]
+
+        for contact in valid_contacts:
+            self.assertTrue(is_valid_receiver_contact(contact))
+
+        for contact in invalid_contacts:
+            self.assertFalse(is_valid_receiver_contact(contact))
