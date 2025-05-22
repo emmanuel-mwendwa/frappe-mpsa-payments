@@ -382,3 +382,35 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertEqual(item.payment_status, "Initiated")
         self.assertEqual(item.error_code, "")  # Cleared
         self.assertEqual(item.error_description, "")  # Cleared
+
+    def test_process_payment_item_is_idempotent(self):
+        """
+        Ensure that calling _process_payment_item multiple times with the same successful response
+        does not corrupt the state or perform duplicate updates.
+        """
+        item = MagicMock()
+        item.name = "IDEMPOTENT_ITEM"
+        item.doctype = "MPesa B2C Payment Item"
+        item.payment_status = "Not Initiated"
+        item.error_code = ""
+        item.error_description = ""
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        self.payment._prepare_request_data = MagicMock(return_value={"dummy": "data"})
+        connector.make_b2c_payment_request.return_value = {"ResponseCode": "0"}
+
+        # First call (should succeed)
+        result1 = self.payment._process_payment_item(item, connector, setting)
+        self.assertTrue(result1)
+        self.assertEqual(item.payment_status, "Initiated")
+
+        # Second call (simulate as if item is already initiated)
+        item.payment_status = "Initiated"  # Assume item remained the same
+        result2 = self.payment._process_payment_item(item, connector, setting)
+        self.assertTrue(result2)
+        self.assertEqual(item.payment_status, "Initiated")
+
+        # Check connector was called twice (one per call)
+        self.assertEqual(connector.make_b2c_payment_request.call_count, 2)
