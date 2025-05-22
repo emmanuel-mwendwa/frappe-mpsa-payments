@@ -271,3 +271,58 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertFalse(result)
         self.assertEqual(item.payment_status, "Failed")
         self.assertIn("object has no attribute", item.error_description)
+
+    def test_process_payment_item_retry_clears_previous_errors(self):
+        """
+        Test that when _process_payment_item is called with is_retry=True,
+        it clears the item's previous error_code, error_description,
+        and resets payment_status to 'Not Initiated' before processing.
+        """
+        item = MagicMock()
+        item.name = "ITEM_RETRY_001"
+        item.doctype = "MPesa B2C Payment Item"
+        item.error_code = "OLD_ERR"
+        item.error_description = "Old error"
+        item.payment_status = "Failed"
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        connector.make_b2c_payment_request.return_value = {"ResponseCode": "0"}
+        self.payment._prepare_request_data = MagicMock(return_value={"mock": "data"})
+
+        result = self.payment._process_payment_item(item, connector, setting, is_retry=True)
+
+        self.assertEqual(item.error_code, "")
+        self.assertEqual(item.error_description, "")
+        self.assertEqual(item.payment_status, "Initiated")
+        self.assertTrue(result)
+
+    def test_process_payment_item_retry_clears_but_still_fails(self):
+        """
+        Test that even if retry clears previous error data,
+        a failed response still results in updated error fields and payment_status 'Failed'.
+        """
+        item = MagicMock()
+        item.name = "ITEM_RETRY_002"
+        item.doctype = "MPesa B2C Payment Item"
+        item.error_code = "PREV_ERR"
+        item.error_description = "Previous failure"
+        item.payment_status = "Failed"
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        connector.make_b2c_payment_request.return_value = {
+            "ResponseCode": "1",
+            "errorCode": "NEW_ERR",
+            "errorMessage": "Payment gateway unavailable",
+        }
+        self.payment._prepare_request_data = MagicMock(return_value={"mock": "data"})
+
+        result = self.payment._process_payment_item(item, connector, setting, is_retry=True)
+
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertEqual(item.error_code, "NEW_ERR")
+        self.assertEqual(item.error_description, "Payment gateway unavailable")
+        self.assertFalse(result)
