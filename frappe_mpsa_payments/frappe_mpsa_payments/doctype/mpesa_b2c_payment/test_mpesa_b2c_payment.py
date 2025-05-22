@@ -231,3 +231,23 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertEqual(item.payment_status, "Failed")
         self.assertEqual(item.error_code, None)
         self.assertEqual(item.error_description, "Unknown error")
+
+    def test_process_payment_item_missing_name(self):
+        """
+        Test that _process_payment_item handles an item missing the 'name' attribute.
+        It should catch the AttributeError and mark the payment as 'Failed' with the appropriate error message.
+        """
+        item = MagicMock()
+        del item.name
+        item.doctype = "MPesa B2C Payment Item"
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        self.payment._prepare_request_data = MagicMock(return_value={"dummy": "data"})
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertIn("object has no attribute", item.error_description)
