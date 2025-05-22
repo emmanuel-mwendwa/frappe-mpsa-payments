@@ -57,3 +57,17 @@ class TestMPesaB2CPayment(FrappeTestCase):
             self.payment.validate()
         except InformationMismatchError:
             self.fail("InformationMismatchError was raised unexpectedly.")
+
+    def test_validate_employee_with_salary_payment_passes(self):
+        """
+        Test that when party_type is 'Employee' and commandid is 'SalaryPayment',
+        validation passes without raising an InformationMismatchError.
+        This confirms that the allowed combination is accepted.
+        """
+        self.payment.party_type = "Employee"
+        self.payment.commandid = "SalaryPayment"
+
+        try:
+            self.payment.validate()
+        except InformationMismatchError:
+            self.fail("InformationMismatchError was raised unexpectedly for a valid Employee-SalaryPayment combination.")
