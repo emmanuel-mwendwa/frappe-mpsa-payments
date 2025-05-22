@@ -251,3 +251,23 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertFalse(result)
         self.assertEqual(item.payment_status, "Failed")
         self.assertIn("object has no attribute", item.error_description)
+
+    def test_process_payment_item_missing_doctype(self):
+        """
+        Test that _process_payment_item handles an item missing the 'doctype' attribute.
+        It should raise and catch the AttributeError, marking the payment as 'Failed'.
+        """
+        item = MagicMock()
+        item.name = "ITEM_MISSING_DOCTYPE"
+        del item.doctype  # Simulate missing 'doctype'
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        self.payment._prepare_request_data = MagicMock(return_value={"dummy": "data"})
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertIn("object has no attribute", item.error_description)
