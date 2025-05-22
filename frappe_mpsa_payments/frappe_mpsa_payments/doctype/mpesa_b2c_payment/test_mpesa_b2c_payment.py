@@ -157,3 +157,28 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertFalse(result)
         self.assertEqual(item.payment_status, "Failed")
         self.assertIn("Simulated connector error", item.error_description)
+
+    def test_process_payment_item_connector_returns_none(self):
+        """
+        Test that _process_payment_item handles the case where the connector returns None.
+        This should be treated as a failed payment request and the item's payment_status
+        should be set to 'Failed' with a generic error description.
+        """
+        item = MagicMock()
+        item.name = "ITEM_NONE"
+        item.doctype = "MPesa B2C Payment Item"
+        item.payment_status = ""
+        item.error_description = ""
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        # Simulate connector returning None
+        connector.make_b2c_payment_request.return_value = None
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertEqual(item.error_code, None)
+        self.assertEqual(item.error_description, "Unknown error")
