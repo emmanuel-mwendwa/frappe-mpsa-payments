@@ -182,3 +182,52 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertEqual(item.payment_status, "Failed")
         self.assertEqual(item.error_code, None)
         self.assertEqual(item.error_description, "Unknown error")
+
+    def test_process_payment_item_missing_response_code(self):
+        """
+        Test that _process_payment_item handles responses without a 'ResponseCode' key.
+        The item should be marked as 'Failed' with 'Unknown error' as the description.
+        """
+        item = MagicMock()
+        item.name = "ITEM_NO_CODE"
+        item.doctype = "MPesa B2C Payment Item"
+        item.payment_status = ""
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        # Response missing 'ResponseCode'
+        connector.make_b2c_payment_request.return_value = {
+            "errorCode": "NO_CODE",
+            "errorMessage": "Missing response code"
+        }
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertEqual(item.error_code, "NO_CODE")
+        self.assertEqual(item.error_description, "Missing response code")
+
+    def test_process_payment_item_empty_response(self):
+        """
+        Test that _process_payment_item handles an empty response dictionary from the connector.
+        It should treat this as a failure and apply fallback values.
+        """
+        item = MagicMock()
+        item.name = "ITEM_EMPTY"
+        item.doctype = "MPesa B2C Payment Item"
+        item.payment_status = ""
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        # Connector returns an empty dict
+        connector.make_b2c_payment_request.return_value = {}
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertEqual(item.error_code, None)
+        self.assertEqual(item.error_description, "Unknown error")
