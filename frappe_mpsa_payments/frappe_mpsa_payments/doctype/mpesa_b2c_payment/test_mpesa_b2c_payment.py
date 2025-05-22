@@ -7,6 +7,7 @@ from .mpesa_b2c_payment import MPesaB2CPayment
 from frappe_mpsa_payments.frappe_mpsa_payments.doctype.mpesa_b2c_payment.custom_exceptions import (
     InformationMismatchError,
 )
+from unittest.mock import MagicMock
 
 
 class TestMPesaB2CPayment(FrappeTestCase):
@@ -70,4 +71,27 @@ class TestMPesaB2CPayment(FrappeTestCase):
         try:
             self.payment.validate()
         except InformationMismatchError:
-            self.fail("InformationMismatchError was raised unexpectedly for a valid Employee-SalaryPayment combination.")
+            self.fail(
+                "InformationMismatchError was raised unexpectedly for a valid Employee-SalaryPayment combination."
+            )
+
+    def test_process_payment_item_success(self):
+        """
+        Should update the item's payment_status to 'Initiated' and return True
+        when the connector returns a successful B2C response.
+        """
+        item = MagicMock()
+        item.name = "ITEM001"
+        item.doctype = "MPesa B2C Payment Item"
+
+        connector = MagicMock()
+        connector.make_b2c_payment_request.return_value = {"ResponseCode": "0"}
+
+        setting = MagicMock()
+
+        self.payment._prepare_request_data = MagicMock(return_value={"dummy": "data"})
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        item.payment_status.__setattr__.assert_called_with("Initiated")
+        self.assertTrue(result)
