@@ -11,6 +11,11 @@ from unittest.mock import MagicMock
 
 
 class TestMPesaB2CPayment(FrappeTestCase):
+    def setUp(self):
+        super().setUp()
+        self.payment = MPesaB2CPayment()
+        self.payment_processor = MPesaB2CPayment()
+
     def test_generate_uuid_v4(self):
         doc = MPesaB2CPayment()
         uuid1 = doc._generate_uuid_v4()
@@ -28,7 +33,7 @@ class TestMPesaB2CPayment(FrappeTestCase):
             {
                 "doctype": "MPesa B2C Payment",
                 "party_type": "Employee",
-                "commandid": "BusinessPayment",  # Invalid commandid for Employee
+                "commandid": "SOmeInvalidCommandID",
                 "company": "Test Company",
                 "mpesa_setting": "Test Setting",
                 "remarks": "Test Remarks",
@@ -51,7 +56,7 @@ class TestMPesaB2CPayment(FrappeTestCase):
         even if the commandid is not 'SalaryPayment'. This confirms that the commandid
         restriction only applies to Employee party_type.
         """
-        self.payment.party_type = "Customer"  # or any non-Employee value
+        self.payment.party_type = "non-Employee value"
         self.payment.commandid = "BusinessPayment"
 
         try:
@@ -93,7 +98,7 @@ class TestMPesaB2CPayment(FrappeTestCase):
 
         result = self.payment._process_payment_item(item, connector, setting)
 
-        item.payment_status.__setattr__.assert_called_with("Initiated")
+        self.assertEqual(item.payment_status, "Initiated")
         self.assertTrue(result)
 
     def test_process_payment_item_retry_fails(self):
@@ -128,3 +133,27 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertEqual(item.payment_status, "Failed")
         self.assertEqual(item.error_code, "ERR_CODE")
         self.assertEqual(item.error_description, "Failed to initiate")
+
+    def test_process_payment_item_connector_exception(self):
+        """
+        Test that _process_payment_item correctly handles an unexpected exception
+        raised by the connector. The method should set the item's payment_status to
+        'Failed', capture the exception message in error_description, and return False.
+        """
+        item = MagicMock()
+        item.name = "ITEM_EXCEPTION"
+        item.doctype = "MPesa B2C Payment Item"
+        item.payment_status = ""
+        item.error_description = ""
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        # Simulate connector throwing an exception
+        connector.make_b2c_payment_request.side_effect = Exception("Simulated connector error")
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertIn("Simulated connector error", item.error_description)
