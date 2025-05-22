@@ -326,3 +326,59 @@ class TestMPesaB2CPayment(FrappeTestCase):
         self.assertEqual(item.error_code, "NEW_ERR")
         self.assertEqual(item.error_description, "Payment gateway unavailable")
         self.assertFalse(result)
+
+    def test_process_payment_item_failure_without_error_fields(self):
+        """
+        Test that when the connector returns a failed response without errorCode or errorMessage,
+        the item.payment_status is set to 'Failed' and item.error_description defaults to 'Unknown error'.
+        """
+        item = MagicMock()
+        item.name = "ITEM_NO_ERROR_INFO"
+        item.doctype = "MPesa B2C Payment Item"
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        # Failure response missing errorCode and errorMessage
+        connector.make_b2c_payment_request.return_value = {
+            "ResponseCode": "1"
+        }
+
+        self.payment._prepare_request_data = MagicMock(return_value={"mock": "data"})
+
+        result = self.payment._process_payment_item(item, connector, setting)
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertEqual(item.error_description, "Unknown error")
+        self.assertIsNone(getattr(item, "error_code", None))  # error_code remains unset or None
+
+    def test_process_payment_item_retry_success(self):
+        """
+        Test that when is_retry=True and the payment request is successful, the item's previous
+        error_code and error_description are cleared, payment_status is updated to 'Initiated',
+        and the method returns True.
+        """
+        item = MagicMock()
+        item.name = "ITEM_RETRY_SUCCESS"
+        item.doctype = "MPesa B2C Payment Item"
+        item.error_code = "OLD_ERR"
+        item.error_description = "Old failure"
+        item.payment_status = "Failed"
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        # Simulate a successful retry
+        connector.make_b2c_payment_request.return_value = {
+            "ResponseCode": "0"
+        }
+
+        self.payment._prepare_request_data = MagicMock(return_value={"some": "data"})
+
+        result = self.payment._process_payment_item(item, connector, setting, is_retry=True)
+
+        self.assertTrue(result)
+        self.assertEqual(item.payment_status, "Initiated")
+        self.assertEqual(item.error_code, "")  # Cleared
+        self.assertEqual(item.error_description, "")  # Cleared
