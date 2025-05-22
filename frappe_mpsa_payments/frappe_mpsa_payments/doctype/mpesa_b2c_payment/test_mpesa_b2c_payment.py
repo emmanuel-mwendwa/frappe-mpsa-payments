@@ -95,3 +95,36 @@ class TestMPesaB2CPayment(FrappeTestCase):
 
         item.payment_status.__setattr__.assert_called_with("Initiated")
         self.assertTrue(result)
+
+    def test_process_payment_item_retry_fails(self):
+        """
+        Test that _process_payment_item resets the item state on retry and correctly
+        handles a failed payment response by updating the error code, description,
+        and marking the status as 'Failed'.
+        """
+
+        item = MagicMock()
+        item.name = "ITEM004"
+        item.doctype = "MPesa B2C Payment Item"
+        item.error_code = "OLD_ERR"
+        item.error_description = "Old error"
+        item.payment_status = "Failed"
+
+        connector = MagicMock()
+        setting = MagicMock()
+
+        # Simulate failure response
+        connector.make_b2c_payment_request.return_value = {
+            "ResponseCode": "1",
+            "errorCode": "ERR_CODE",
+            "errorMessage": "Failed to initiate",
+        }
+
+        result = self.payment_processor._process_payment_item(
+            item, connector, setting, is_retry=True
+        )
+
+        self.assertFalse(result)
+        self.assertEqual(item.payment_status, "Failed")
+        self.assertEqual(item.error_code, "ERR_CODE")
+        self.assertEqual(item.error_description, "Failed to initiate")
