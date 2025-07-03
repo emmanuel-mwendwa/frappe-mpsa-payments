@@ -91,6 +91,9 @@ jobs:
           bench get-app frappe_mpsa_payments $GITHUB_WORKSPACE
           bench setup requirements --dev
           bench new-site --db-root-password root --admin-password admin test_site
+          bench --site test_site install-app erpnext
+          bench --site test_site install-app hrms
+          bench --site test_site install-app lending
           bench --site test_site install-app frappe_mpsa_payments
           bench build
         env:
