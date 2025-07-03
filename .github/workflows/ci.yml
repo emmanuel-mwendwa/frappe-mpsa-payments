@@ -95,6 +95,7 @@ jobs:
           bench --site test_site install-app hrms
           bench --site test_site install-app lending
           bench --site test_site install-app frappe_mpsa_payments
+          bench --site test_site migrate
           bench build
         env:
           CI: 'Yes'
